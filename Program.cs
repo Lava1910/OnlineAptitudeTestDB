@@ -1,7 +1,10 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using OnlineAptitudeTestDB.Entities;
 using OnlineAptitudeTestDB.Interfaces;
 using OnlineAptitudeTestDB.Service;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,8 +33,30 @@ var connectionString = builder.Configuration.GetConnectionString("OnlineAptitude
 builder.Services.AddDbContext<OnlineAptitudeTestDbContext>(options =>
     options.UseSqlServer(connectionString));
 
+//ConfigureServices
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options => {
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = builder.Configuration["Jwt:Issuer"],
+        ValidAudience = builder.Configuration["Jwt:Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+    };
+});
+builder.Services.AddSingleton<Random>();
 builder.Services.AddScoped<IManageCandidateService, ManageCandidateService>();
 builder.Services.AddScoped<IManageQuestionService, ManageQuestionService>();
+builder.Services.AddScoped<ITestService, TestService>();
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("Admin", policy => policy.RequireRole("Admin"));
+    options.AddPolicy("Candidate", policy => policy.RequireRole("Candidate"));
+    options.AddPolicy("Auth", policy => policy.RequireAuthenticatedUser());
+});
 
 var app = builder.Build();
 
@@ -43,7 +68,8 @@ if (app.Environment.IsDevelopment())
 }
 app.UseCors();
 app.UseHttpsRedirection();
-
+app.UseStaticFiles();
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

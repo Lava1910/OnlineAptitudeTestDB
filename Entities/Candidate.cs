@@ -11,7 +11,7 @@ public partial class Candidate
 
     public string Password { get; set; } = null!;
 
-    public int RoleId { get; set; }
+    public string Role { get; set; } = null!;
 
     public string Email { get; set; } = null!;
 
@@ -27,11 +27,11 @@ public partial class Candidate
 
     public string? WorkExperience { get; set; }
 
-    public int? Pass { get; set; }
+    public int Status { get; set; }
 
-    public double? ScoreFinal { get; set; }
+    public int? ScoreFinal { get; set; }
+
+    public DateTime DisabledUntil { get; set; }
 
     public virtual ICollection<CandidateTestDetail> CandidateTestDetails { get; set; } = new List<CandidateTestDetail>();
-
-    public virtual Role Role { get; set; } = null!;
 }

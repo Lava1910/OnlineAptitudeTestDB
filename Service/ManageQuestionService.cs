@@ -1,8 +1,12 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Azure.Core;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using OnlineAptitudeTestDB.Dto.Question;
 using OnlineAptitudeTestDB.Entities;
 using OnlineAptitudeTestDB.Interfaces;
 using OnlineAptitudeTestDB.ViewModel;
+using System.Linq;
+using System.Net.Mail;
 
 namespace OnlineAptitudeTestDB.Service
 {
@@ -14,17 +18,19 @@ namespace OnlineAptitudeTestDB.Service
             _context = context;
         }
 
-        public async Task<List<QuestionViewModel>> GetAll()
+        public async Task<List<ListQuestionViewModel>> GetAll()
         {
             return await _context.Questions
                 .Include(q => q.Topic)
+                .Include(q => q.Type)
                 .Include(q => q.Answers)
-                .Select(rs => new QuestionViewModel
+                .Select(rs => new ListQuestionViewModel
                 {
+                    QuestionId = rs.QuestionId,
                     TopicName = rs.Topic.TopicName,
                     ContentQuestion = rs.ContentQuestion,
                     DifficultyLevel = rs.DifficultyLevel,
-                    Type = rs.Type,
+                    Type = rs.Type.Type,
                     ContentAnswer = rs.Answers
                         .Select(a => a.ContentAnswer)
                         .ToList(),
@@ -35,18 +41,20 @@ namespace OnlineAptitudeTestDB.Service
                 }).ToListAsync();
         }
 
-        public async Task<List<QuestionViewModel>> SearchByDifficulty(int difficultyLevel)
+        public async Task<List<ListQuestionViewModel>> SearchByDifficulty(int difficultyLevel)
         {
             return await _context.Questions
                 .Where(q => q.DifficultyLevel == difficultyLevel)
                 .Include(q => q.Topic)
+                .Include(q => q.Type)
                 .Include(q => q.Answers)
-                .Select(rs => new QuestionViewModel
+                .Select(rs => new ListQuestionViewModel
                 {
+                    QuestionId = rs.QuestionId,
                     TopicName = rs.Topic.TopicName,
                     ContentQuestion = rs.ContentQuestion,
                     DifficultyLevel = rs.DifficultyLevel,
-                    Type = rs.Type,
+                    Type = rs.Type.Type,
                     ContentAnswer = rs.Answers
                         .Select(a => a.ContentAnswer)
                         .ToList(),
@@ -57,18 +65,20 @@ namespace OnlineAptitudeTestDB.Service
                 }).ToListAsync();
         }
 
-        public async Task<List<QuestionViewModel>> SearchByTopic(string topicName)
+        public async Task<List<ListQuestionViewModel>> SearchByTopic(string topicName)
         {
             return await _context.Questions
                 .Include(q => q.Topic)
+                .Include(q => q.Type)
                 .Include(q => q.Answers)
                 .Where(q => q.Topic.TopicName == topicName)
-                .Select(rs => new QuestionViewModel
+                .Select(rs => new ListQuestionViewModel
                 {
+                    QuestionId = rs.QuestionId,
                     TopicName = rs.Topic.TopicName,
                     ContentQuestion = rs.ContentQuestion,
                     DifficultyLevel = rs.DifficultyLevel,
-                    Type = rs.Type,
+                    Type = rs.Type.Type,
                     ContentAnswer = rs.Answers
                         .Select(a => a.ContentAnswer)
                         .ToList(),
@@ -80,19 +90,21 @@ namespace OnlineAptitudeTestDB.Service
             
         }
 
-        public async Task<List<QuestionViewModel>> Search(string search)
+        public async Task<List<ListQuestionViewModel>> Search(string search)
         {
             return await _context.Questions
                 .Include(q => q.Topic)
+                .Include(q => q.Type)
                 .Include(q => q.Answers)
                 .Where(q => q.ContentQuestion.Contains(search.ToLower())
                     || q.Topic.TopicName.Contains(search.ToLower()))
-                .Select(rs => new QuestionViewModel
+                .Select(rs => new ListQuestionViewModel
                 {
+                    QuestionId= rs.QuestionId,
                     TopicName = rs.Topic.TopicName,
                     ContentQuestion = rs.ContentQuestion,
                     DifficultyLevel = rs.DifficultyLevel,
-                    Type = rs.Type,
+                    Type = rs.Type.Type,
                     ContentAnswer = rs.Answers
                         .Select(a => a.ContentAnswer)
                         .ToList(),
@@ -105,12 +117,14 @@ namespace OnlineAptitudeTestDB.Service
 
         public async Task<int> Create(QuestionCreateRequest request)
         {
+            //var correctAnswerCount = request.CorrectAnswers.Count(correct => correct);
             var question = new Question()
             {
-                TopicId = request.TopicId,
+                TopicId = _context.QuestionTopics.First(t => t.TopicName == request.TopicName).TopicId,
                 ContentQuestion = request.ContentQuestion,
                 DifficultyLevel = request.DifficultyLevel,
-                Type = request.Type,
+                //Type = correctAnswerCount == 1 ? "checkbox" : "radio",
+                TypeId = _context.QuestionTypes.First(t => t.Type == request.Type).TypeId,
                 Answers = new List<Answer>()
             };
             _context.Questions.Add(question);
@@ -129,18 +143,19 @@ namespace OnlineAptitudeTestDB.Service
             return question.QuestionId;
         }
 
-        public async Task<List<QuestionViewModel>> SearchByType(string type)
+        public async Task<List<ListQuestionViewModel>> SearchByType(string type)
         {
             return await _context.Questions
                 .Include(q => q.Topic)
+                .Include(q => q.Type)
                 .Include(q => q.Answers)
-                .Where(q => q.Type == type)
-                .Select(rs => new QuestionViewModel
+                .Where(q => q.Type.Type == type)
+                .Select(rs => new ListQuestionViewModel
                 {
                     TopicName = rs.Topic.TopicName,
                     ContentQuestion = rs.ContentQuestion,
                     DifficultyLevel = rs.DifficultyLevel,
-                    Type = rs.Type,
+                    Type = rs.Type.Type,
                     ContentAnswer = rs.Answers
                         .Select(a => a.ContentAnswer)
                         .ToList(),
@@ -151,55 +166,91 @@ namespace OnlineAptitudeTestDB.Service
                 }).ToListAsync();
         }
 
-        public async Task<List<QuestionViewModel>> Searching(string search, int difficultyLevel, string topicName, string type)
+        public async Task<List<ListQuestionViewModel>> Searching([FromQuery]SearchQuestionForm search)
         {
-            var query = _context.Questions;
+            //return await _context.Questions
+            //     .Include(q => q.Topic)
+            //     .Include(q => q.Answers)
+            //     .Where(q => q.ContentQuestion.Contains(request.Search.ToLower())
+            //        || q.Topic.TopicName.Contains(request.Search.ToLower()))
+            //     .Where(q => q.TypeId == request.TypeId)
+            //     .Where(q => q.DifficultyLevel == request.DifficultyLevel)
+            //     .Where(q => q.TopicId == request.TopicId)
+            //     .Select(rs => new ListQuestionViewModel
+            //     {
+            //         QuestionId = rs.QuestionId,
+            //         TopicName = rs.Topic.TopicName,
+            //         ContentQuestion = rs.ContentQuestion,
+            //         DifficultyLevel = rs.DifficultyLevel,
+            //         Type = rs.Type.Type,
+            //         ContentAnswer = rs.Answers
+            //             .Select(a => a.ContentAnswer)
+            //             .ToList(),
+            //         CorrectAnswers = rs.Answers
+            //             .Where(a => a.CorrectAnswer)
+            //             .Select(a => a.ContentAnswer)
+            //             .ToList()
+            //     }).ToListAsync();
+                var query = _context.Questions.AsQueryable();
 
-            if (!string.IsNullOrEmpty(search))
-            {
-                query = (DbSet<Question>)query.Where(q => q.ContentQuestion.Contains(search.ToLower())
-                                     || q.Topic.TopicName.Contains(search.ToLower()));
-            }
-
-            if (!string.IsNullOrEmpty(type))
-            {
-                query = (DbSet<Question>)query.Where(q => q.Type == type);
-            }
-
-            if (!string.IsNullOrEmpty(topicName))
-            {
-                query = (DbSet<Question>)query.Where(q => q.Topic.TopicName == topicName);
-            }
-
-            if (difficultyLevel > 0) // Assuming 0 means no filter for difficulty
-            {
-                query = (DbSet<Question>)query.Where(q => q.DifficultyLevel == difficultyLevel);
-            }
-
-            var result = await query
-                .Include(q => q.Topic)
-                .Include(q => q.Answers)
-                .Select(rs => new QuestionViewModel
+                if (!string.IsNullOrEmpty(search.Search))
                 {
-                    TopicName = rs.Topic.TopicName,
-                    ContentQuestion = rs.ContentQuestion,
-                    DifficultyLevel = rs.DifficultyLevel,
-                    Type = rs.Type,
-                    ContentAnswer = rs.Answers
-                        .Select(a => a.ContentAnswer)
-                        .ToList(),
-                    CorrectAnswers = rs.Answers
-                        .Where(a => a.CorrectAnswer)
-                        .Select(a => a.ContentAnswer)
-                        .ToList()
-                }).ToListAsync();
+                    query = query.Where(q => q.ContentQuestion.Contains(search.Search));
+                }
 
-            return result;
+                if (search.TopicId.HasValue)
+                {
+                    query = query.Where(q => q.TopicId == search.TopicId);
+                }
+
+                if (search.TypeId.HasValue)
+                {
+                    query = query.Where(q => q.TypeId == search.TypeId);
+                }
+
+                if (search.DifficultyLevel.HasValue)
+                {
+                    query = query.Where(q => q.DifficultyLevel == search.DifficultyLevel);
+                }
+
+                var result = await query
+                    .Select(rs => new ListQuestionViewModel
+                    {
+                        QuestionId = rs.QuestionId,
+                        TopicName = rs.Topic.TopicName,
+                        ContentQuestion = rs.ContentQuestion,
+                        DifficultyLevel = rs.DifficultyLevel,
+                        Type = rs.Type.Type,
+                        ContentAnswer = rs.Answers.Select(a => a.ContentAnswer).ToList(),
+                        CorrectAnswers = rs.Answers
+                            .Where(a => a.CorrectAnswer)
+                            .Select(a => a.ContentAnswer)
+                            .ToList()
+                    })
+                    .ToListAsync();
+                return result;
         }
 
         public Task<int> Update(QuestionCreateRequest request)
         {
             throw new NotImplementedException();
+        }
+
+        public bool Delete(int questionId)
+        {
+            var deleteQuestion = _context.Questions
+                .First(q => q.QuestionId == questionId);
+            var deleteAnswer = _context.Answers
+                .Where(q => q.QuestionId == questionId);
+            if (deleteQuestion == null)
+            {
+                return false;
+            }
+            _context.Answers.RemoveRange(deleteAnswer);
+            _context.Questions.Remove(deleteQuestion);
+            _context.SaveChanges();
+            return true;
+
         }
     }
 }

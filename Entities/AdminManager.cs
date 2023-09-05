@@ -11,7 +11,7 @@ public partial class AdminManager
 
     public string Password { get; set; } = null!;
 
-    public int RoleId { get; set; }
+    public string Role { get; set; } = null!;
 
     public string Email { get; set; } = null!;
 
@@ -22,6 +22,4 @@ public partial class AdminManager
     public DateTime Birthday { get; set; }
 
     public string? Phone { get; set; }
-
-    public virtual Role Role { get; set; } = null!;
 }

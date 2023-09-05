@@ -11,6 +11,8 @@ public partial class Test
 
     public DateTime TimeStart { get; set; }
 
+    public virtual ICollection<CandidateAnswer> CandidateAnswers { get; set; } = new List<CandidateAnswer>();
+
     public virtual ICollection<CandidateTestDetail> CandidateTestDetails { get; set; } = new List<CandidateTestDetail>();
 
     public virtual ICollection<TestQuestion> TestQuestions { get; set; } = new List<TestQuestion>();

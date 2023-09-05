@@ -11,11 +11,15 @@ public partial class CandidateTestDetail
 
     public int CandidateId { get; set; }
 
-    public string CandidateAnswer { get; set; } = null!;
+    public int ScoreTopic1 { get; set; }
 
-    public double Score { get; set; }
+    public int ScoreTopic2 { get; set; }
+
+    public int ScoreTopic3 { get; set; }
 
     public virtual Candidate Candidate { get; set; } = null!;
+
+    public virtual ICollection<CandidateAnswer> CandidateAnswers { get; set; } = new List<CandidateAnswer>();
 
     public virtual Test TestCodeNavigation { get; set; } = null!;
 }

@@ -2,13 +2,12 @@
 {
     public class QuestionCreateRequest
     {
-        public int TopicId { get; set; }
+        public string TopicName { get; set; } = null!;
 
         public string ContentQuestion { get; set; } = null!;
 
-        public string Type { get; set; } = null!;
-
         public int DifficultyLevel { get; set; }
+        public string Type { get; set; } = null!;
 
         public List<string> ContentAnswers { get; set; } = null!;
 
